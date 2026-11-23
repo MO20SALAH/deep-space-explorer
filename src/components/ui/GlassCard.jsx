@@ -1,29 +1,24 @@
-import React from 'react';
 
-/**
- * GlassCard component - A reusable glassmorphic container
- * featuring backdrop blur, fine borders, and space ambient shadow.
- */
 export default function GlassCard({
   children,
-  className = '',
-  glow = false,
-  ...props
+  className = "",
+  onClick,
 }) {
   return (
     <div
+      onClick={onClick}
       className={`
-        rounded-2xl
-        p-6 sm:p-8
+        bg-white/5
         backdrop-blur-md
-        bg-slate-950/60
         border border-white/10
-        shadow-2xl
+        rounded-2xl
+        shadow-lg shadow-black/20
         transition-all duration-300
-        ${glow ? 'shadow-cyan-500/10 border-cyan-500/30 ring-1 ring-cyan-500/20' : ''}
+        hover:border-sky-400/40
+        hover:shadow-sky-500/10
+        hover:-translate-y-1
         ${className}
       `}
-      {...props}
     >
       {children}
     </div>
