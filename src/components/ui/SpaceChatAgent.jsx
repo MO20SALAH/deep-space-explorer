@@ -173,7 +173,7 @@ export default function SpaceChatAgent() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.94 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="mb-4 w-[calc(100vw-3rem)] sm:w-96 h-[32rem] max-h-[78vh] rounded-3xl bg-[#070d1f]/90 backdrop-blur-xl border border-white/15 shadow-[0_0_45px_rgba(56,189,248,0.2)] flex flex-col overflow-hidden"
+            className="cosmic-glass-card cosmic-ambient-glow mb-4 w-[calc(100vw-3rem)] sm:w-96 h-[32rem] max-h-[78vh] rounded-3xl bg-[#070d1f]/90 backdrop-blur-xl border border-white/15 flex flex-col overflow-hidden"
           >
             {/* رأس النافذة */}
             <div className="px-4 py-3.5 bg-white/5 border-b border-white/10 flex items-center justify-between">

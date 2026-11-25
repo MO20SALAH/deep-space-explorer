@@ -1,21 +1,17 @@
+import { memo } from "react";
 
-export default function GlassCard({
-  children,
-  className = "",
-  onClick,
-}) {
+function GlassCard({ children, className = "", onClick }) {
   return (
     <div
       onClick={onClick}
       className={`
-        bg-white/5
+        cosmic-glass-card
+        cosmic-ambient-glow
+        bg-white/[0.045]
         backdrop-blur-md
         border border-white/10
         rounded-2xl
-        shadow-lg shadow-black/20
         transition-all duration-300
-        hover:border-sky-400/40
-        hover:shadow-sky-500/10
         hover:-translate-y-1
         ${className}
       `}
@@ -24,3 +20,5 @@ export default function GlassCard({
     </div>
   );
 }
+
+export default memo(GlassCard);
