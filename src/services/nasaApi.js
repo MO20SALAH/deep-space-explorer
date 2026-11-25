@@ -6,6 +6,17 @@ const NASA_API_KEY = import.meta.env.VITE_NASA_API_KEY || "DEMO_KEY";
 const APOD_URL = "https://api.nasa.gov/planetary/apod";
 const IMAGES_URL = "https://images-api.nasa.gov/search";
 
+export const FALLBACK_APOD = {
+  title: "سديم الجبار (Orion Nebula) - لوحة كونية",
+  date: new Date().toISOString().split("T")[0],
+  explanation:
+    "يُعد سديم الجبار (M42) واحداً من ألمع السدم وأقرب مناطق تشكل النجوم العملاقة إلى كوكب الأرض، حيث يبعد عنا حوالي 1344 سنة ضوئية ويحتضن آلاف النجوم الوليدة وسط سحب متوهجة من الغاز والغبار الكوني.",
+  url: "https://images-assets.nasa.gov/image/PIA08653/PIA08653~medium.jpg",
+  hdurl: "https://images-assets.nasa.gov/image/PIA08653/PIA08653~orig.jpg",
+  media_type: "image",
+  isFallback: true,
+};
+
 // صورة اليوم الفلكية
 export async function getAPOD() {
   try {
@@ -16,14 +27,16 @@ export async function getAPOD() {
       timeout: 15000,
     });
 
-    return response.data;
-  } catch (error) {
-    console.error("APOD Error:", error);
+    const data = response.data;
 
-    throw new Error(
-      error.response?.data?.msg ||
-      "تعذر تحميل صورة اليوم الفلكية. حاول مرة أخرى."
-    );
+    if (!data || data.media_type !== "image" || !data.url) {
+      return FALLBACK_APOD;
+    }
+
+    return data;
+  } catch (error) {
+    console.warn("APOD Fallback activated:", error?.message || error);
+    return FALLBACK_APOD;
   }
 }
 

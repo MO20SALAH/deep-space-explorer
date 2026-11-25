@@ -69,10 +69,37 @@ export default function SpaceChatAgent() {
         body: JSON.stringify({ message: trimmed }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data?.error || 'تعذر الاتصال بالمساعد الفضائي.');
+        let serverError = '';
+        try {
+          const errorText = await response.text();
+          if (errorText && errorText.trim()) {
+            const errorJson = JSON.parse(errorText);
+            serverError = errorJson?.error || '';
+          }
+        } catch {
+          // تجاهل أخطاء تحليل الرد غير النصي أو الفارغ
+        }
+        throw new Error(
+          serverError ||
+            'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
+        );
+      }
+
+      const rawText = await response.text();
+      if (!rawText || !rawText.trim()) {
+        throw new Error(
+          'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
+        );
+      }
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(
+          'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
+        );
       }
 
       setMessages((prev) => [
@@ -105,7 +132,7 @@ export default function SpaceChatAgent() {
   const showQuickPrompts = messages.length === 1 && !isLoading;
 
   return (
-    <div dir="rtl" className="fixed bottom-5 left-5 z-50">
+    <div dir="rtl" className="fixed bottom-6 left-6 z-50">
       {/* نافذة الشات الزجاجية */}
       <AnimatePresence>
         {isOpen && (
@@ -114,7 +141,7 @@ export default function SpaceChatAgent() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.94 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="mb-4 w-[calc(100vw-2.5rem)] sm:w-96 h-[32rem] max-h-[78vh] rounded-3xl bg-[#070d1f]/90 backdrop-blur-xl border border-white/15 shadow-[0_0_45px_rgba(56,189,248,0.2)] flex flex-col overflow-hidden"
+            className="mb-4 w-[calc(100vw-3rem)] sm:w-96 h-[32rem] max-h-[78vh] rounded-3xl bg-[#070d1f]/90 backdrop-blur-xl border border-white/15 shadow-[0_0_45px_rgba(56,189,248,0.2)] flex flex-col overflow-hidden"
           >
             {/* رأس النافذة */}
             <div className="px-4 py-3.5 bg-white/5 border-b border-white/10 flex items-center justify-between">
