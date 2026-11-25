@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Search,
@@ -32,9 +32,9 @@ export default function Gallery() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [retry, setRetry] = useState(0);
 
-  // جلب الصور من NASA
+  // جلب الصور من NASA مع AbortController لإلغاء الطلبات المعلقة عند الخروج
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     async function loadImages() {
       try {
@@ -43,18 +43,23 @@ export default function Gallery() {
         setImages([]);
 
         const query = appliedSearch.trim() || activeCategory;
+        const data = await getSpaceImages(query, 1, controller.signal);
 
-        const data = await getSpaceImages(query);
-
-        if (active) {
+        if (!controller.signal.aborted) {
           setImages(data);
         }
       } catch (err) {
-        if (active) {
-          setError(err.message);
+        if (
+          controller.signal.aborted ||
+          err?.name === "CanceledError" ||
+          err?.name === "AbortError" ||
+          err?.code === "ERR_CANCELED"
+        ) {
+          return;
         }
+        setError(err.message);
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -63,22 +68,62 @@ export default function Gallery() {
     loadImages();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [activeCategory, appliedSearch, retry]);
 
+  // تثبيت نتائج البحث والفلترة وتنسيق التواريخ عبر useMemo
+  const filteredImages = useMemo(() => {
+    const seen = new Set();
+    const localQuery = search.trim().toLowerCase();
+
+    return images
+      .filter((img) => {
+        if (!img.id || seen.has(img.id)) return false;
+        seen.add(img.id);
+        if (!localQuery || localQuery === appliedSearch.trim().toLowerCase()) {
+          return true;
+        }
+        return (
+          img.title?.toLowerCase().includes(localQuery) ||
+          img.description?.toLowerCase().includes(localQuery)
+        );
+      })
+      .map((img) => ({
+        ...img,
+        formattedDate: img.date
+          ? new Date(img.date).toLocaleDateString("ar")
+          : "تاريخ غير متوفر",
+      }));
+  }, [images, search, appliedSearch]);
+
   // تنفيذ البحث
-  function handleSearch(e) {
-    e.preventDefault();
-    setAppliedSearch(search.trim());
-  }
+  const handleSearch = useCallback(
+    (e) => {
+      e.preventDefault();
+      setAppliedSearch(search.trim());
+    },
+    [search]
+  );
 
   // تغيير التصنيف
-  function handleCategory(value) {
+  const handleCategory = useCallback((value) => {
     setActiveCategory(value);
     setSearch("");
     setAppliedSearch("");
-  }
+  }, []);
+
+  const handleSelectImage = useCallback((image) => {
+    setSelectedImage(image);
+  }, []);
+
+  const handleCloseLightbox = useCallback(() => {
+    setSelectedImage(null);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setRetry((prev) => prev + 1);
+  }, []);
 
   return (
     <section
@@ -174,7 +219,7 @@ export default function Gallery() {
           </p>
 
           <button
-            onClick={() => setRetry((prev) => prev + 1)}
+            onClick={handleRetry}
             className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-black px-5 py-3 rounded-xl font-bold transition"
           >
             <RefreshCw size={18} />
@@ -184,7 +229,7 @@ export default function Gallery() {
       )}
 
       {/* Empty State */}
-      {!loading && !error && images.length === 0 && (
+      {!loading && !error && filteredImages.length === 0 && (
         <div className="text-center py-20">
           <ImageIcon
             size={45}
@@ -202,20 +247,20 @@ export default function Gallery() {
       )}
 
       {/* Images Grid */}
-      {!loading && !error && images.length > 0 && (
+      {!loading && !error && filteredImages.length > 0 && (
         <>
           <div className="flex justify-between items-center mb-5">
             <p className="text-gray-400 text-sm">
-              تم العثور على {images.length} صورة
+              تم العثور على {filteredImages.length} صورة
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
 
-            {images.map((image) => (
+            {filteredImages.map((image) => (
               <GlassCard
                 key={image.id}
-                onClick={() => setSelectedImage(image)}
+                onClick={() => handleSelectImage(image)}
                 className="overflow-hidden cursor-pointer group"
               >
                 <div className="relative h-60 overflow-hidden">
@@ -242,9 +287,7 @@ export default function Gallery() {
 
                   <div className="flex items-center gap-2 mt-4 text-sky-400 text-xs">
                     <CalendarDays size={15} />
-                    {image.date
-                      ? new Date(image.date).toLocaleDateString("ar")
-                      : "تاريخ غير متوفر"}
+                    {image.formattedDate}
                   </div>
                 </div>
               </GlassCard>
@@ -258,10 +301,10 @@ export default function Gallery() {
       {selectedImage && (
         <div
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4"
-          onClick={() => setSelectedImage(null)}
+          onClick={handleCloseLightbox}
         >
           <button
-            onClick={() => setSelectedImage(null)}
+            onClick={handleCloseLightbox}
             className="absolute top-5 left-5 bg-white/10 hover:bg-red-500 text-white p-3 rounded-full transition"
             aria-label="إغلاق الصورة"
           >
@@ -290,9 +333,7 @@ export default function Gallery() {
               <div className="flex items-center gap-2 text-sky-400 text-sm mt-4">
                 <CalendarDays size={17} />
 
-                {selectedImage.date
-                  ? new Date(selectedImage.date).toLocaleDateString("ar")
-                  : "تاريخ غير متوفر"}
+                {selectedImage.formattedDate}
               </div>
             </div>
           </div>

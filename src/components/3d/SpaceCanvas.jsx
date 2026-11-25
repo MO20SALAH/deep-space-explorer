@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { memo, Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import StarField from './StarField';
@@ -7,19 +7,28 @@ import PlanetModel from './PlanetModel';
 /**
  * SpaceCanvas component - renders a full-viewport, high-performance (60fps)
  * 3D space scene with stars, rotating planet, and orbit controls.
+ * Wrapped in React.memo to prevent unnecessary re-renders during UI/route updates.
  */
-export default function SpaceCanvas() {
+function SpaceCanvas() {
+  const cameraConfig = useMemo(
+    () => ({ position: [0, 0.3, 6.2], fov: 45, near: 0.1, far: 1000 }),
+    []
+  );
+
+  const dprRange = useMemo(() => [1, 2], []);
+
+  const glConfig = useMemo(
+    () => ({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+    }),
+    []
+  );
+
   return (
     <div className="fixed inset-0 -z-10 w-full h-full bg-[#030712] overflow-hidden select-none">
-      <Canvas
-        camera={{ position: [0, 0.3, 6.2], fov: 45, near: 0.1, far: 1000 }}
-        dpr={[1, 2]} // Crisp rendering on high-DPI retina screens without lag
-        gl={{
-          antialias: true,
-          alpha: true,
-          powerPreference: 'high-performance',
-        }}
-      >
+      <Canvas camera={cameraConfig} dpr={dprRange} gl={glConfig}>
         <Suspense fallback={null}>
           {/* Animated 3D Starfield */}
           <StarField />
@@ -42,3 +51,5 @@ export default function SpaceCanvas() {
     </div>
   );
 }
+
+export default memo(SpaceCanvas);

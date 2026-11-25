@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bot, Send, Sparkles, X } from 'lucide-react';
 
@@ -43,91 +43,123 @@ export default function SpaceChatAgent() {
   ]);
 
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
+  // التمرير التلقائي السلس لآخر رسالة عند وصول رد جديد
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, isOpen]);
 
-  const sendMessage = async (textToSend) => {
-    const trimmed = (textToSend ?? input).trim();
-    if (!trimmed || isLoading) return;
+  // التركيز التلقائي على حقل الإدخال فور فتح نافذة الشات
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
 
-    const userMsg = {
-      id: `${Date.now()}-user`,
-      role: 'user',
-      content: trimmed,
-    };
+  const sendMessage = useCallback(
+    async (textToSend) => {
+      const trimmed = (textToSend ?? input).trim();
+      if (!trimmed || isLoading) return;
 
-    setMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setInput('');
-    setIsLoading(true);
+      const userMsg = {
+        id: `${Date.now()}-user`,
+        role: 'user',
+        content: trimmed,
+      };
 
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
-      });
+      setMessages((prev) => [...prev, userMsg]);
+      if (!textToSend) setInput('');
+      setIsLoading(true);
 
-      if (!response.ok) {
-        let serverError = '';
-        try {
-          const errorText = await response.text();
-          if (errorText && errorText.trim()) {
-            const errorJson = JSON.parse(errorText);
-            serverError = errorJson?.error || '';
-          }
-        } catch {
-          // تجاهل أخطاء تحليل الرد غير النصي أو الفارغ
-        }
-        throw new Error(
-          serverError ||
-            'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
-        );
-      }
-
-      const rawText = await response.text();
-      if (!rawText || !rawText.trim()) {
-        throw new Error(
-          'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
-        );
-      }
-
-      let data;
       try {
-        data = JSON.parse(rawText);
-      } catch {
-        throw new Error(
-          'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
-        );
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: trimmed }),
+        });
+
+        if (!response.ok) {
+          let serverError = '';
+          try {
+            const errorText = await response.text();
+            if (errorText && errorText.trim()) {
+              const errorJson = JSON.parse(errorText);
+              serverError = errorJson?.error || '';
+            }
+          } catch {
+            // تجاهل أخطاء تحليل الرد غير النصي أو الفارغ
+          }
+          throw new Error(
+            serverError ||
+              'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
+          );
+        }
+
+        const rawText = await response.text();
+        if (!rawText || !rawText.trim()) {
+          throw new Error(
+            'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
+          );
+        }
+
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error(
+            'يرجى تشغيل السيرفر عبر vercel dev أو التأكد من مفتاح Gemini API.'
+          );
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-ai`,
+            role: 'assistant',
+            content: data.reply || 'لم أتمكن من استلام رد واضح، حاول مرة أخرى.',
+          },
+        ]);
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-err`,
+            role: 'assistant',
+            content: `عذراً، حدث خلل أثناء الاتصال بمركز التحكم الفضائي: ${err.message}`,
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [input, isLoading]
+  );
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-ai`,
-          role: 'assistant',
-          content: data.reply || 'لم أتمكن من استلام رد واضح، حاول مرة أخرى.',
-        },
-      ]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-err`,
-          role: 'assistant',
-          content: `عذراً، حدث خلل أثناء الاتصال بمركز التحكم الفضائي: ${err.message}`,
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleQuickPrompt = useCallback(
+    (prompt) => {
+      sendMessage(prompt);
+    },
+    [sendMessage]
+  );
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    sendMessage();
-  };
+  const handleSubmit = useCallback(
+    (e) => {
+      e.preventDefault();
+      sendMessage();
+    },
+    [sendMessage]
+  );
+
+  const handleToggleChat = useCallback(() => {
+    setIsOpen((prev) => !prev);
+  }, []);
+
+  const handleCloseChat = useCallback(() => {
+    setIsOpen(false);
+  }, []);
 
   const showQuickPrompts = messages.length === 1 && !isLoading;
 
@@ -160,7 +192,7 @@ export default function SpaceChatAgent() {
 
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={handleCloseChat}
                 aria-label="إغلاق المساعد الفضائي"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
@@ -200,7 +232,7 @@ export default function SpaceChatAgent() {
                       <button
                         key={prompt}
                         type="button"
-                        onClick={() => sendMessage(prompt)}
+                        onClick={() => handleQuickPrompt(prompt)}
                         className="text-right text-xs px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#38BDF8]/50 text-slate-200 transition-all cursor-pointer"
                       >
                         {prompt}
@@ -230,6 +262,7 @@ export default function SpaceChatAgent() {
               className="p-3 bg-white/5 border-t border-white/10 flex items-center gap-2"
             >
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -253,7 +286,7 @@ export default function SpaceChatAgent() {
       {/* الزر العائم المتوهج في أسفل اليسار */}
       <motion.button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggleChat}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.95 }}
         aria-label="فتح المساعد الفضائي"

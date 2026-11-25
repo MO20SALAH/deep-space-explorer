@@ -1,17 +1,43 @@
-import React, { useRef } from 'react';
+import React, { memo, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 
 /**
  * StarField component - creates a deep space star environment
- * with continuous subtle animated rotation.
+ * with continuous subtle animated rotation via useRef + useFrame.
  */
-export default function StarField() {
-  const groupRef = useRef();
+function StarField() {
+  const groupRef = useRef(null);
 
-  useFrame((state, delta) => {
+  const primaryStarsProps = useMemo(
+    () => ({
+      radius: 120,
+      depth: 60,
+      count: 6000,
+      factor: 4,
+      saturation: 0.3,
+      fade: true,
+      speed: 1.2,
+    }),
+    []
+  );
+
+  const distantStarsProps = useMemo(
+    () => ({
+      radius: 200,
+      depth: 80,
+      count: 2000,
+      factor: 7,
+      saturation: 0.8,
+      fade: true,
+      speed: 0.8,
+    }),
+    []
+  );
+
+  useFrame((_, delta) => {
     if (groupRef.current) {
-      // Slow realistic cosmological rotation
+      // Slow realistic cosmological rotation without triggering React re-renders
       groupRef.current.rotation.y += delta * 0.015;
       groupRef.current.rotation.x += delta * 0.004;
     }
@@ -20,25 +46,11 @@ export default function StarField() {
   return (
     <group ref={groupRef}>
       {/* Primary high-density sparkling stars */}
-      <Stars
-        radius={120}
-        depth={60}
-        count={6000}
-        factor={4}
-        saturation={0.3}
-        fade
-        speed={1.2}
-      />
+      <Stars {...primaryStarsProps} />
       {/* Distant larger cosmic stars */}
-      <Stars
-        radius={200}
-        depth={80}
-        count={2000}
-        factor={7}
-        saturation={0.8}
-        fade
-        speed={0.8}
-      />
+      <Stars {...distantStarsProps} />
     </group>
   );
 }
+
+export default memo(StarField);

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -103,16 +103,42 @@ function createCloudsTexture() {
  * PlanetModel component with realistic lighting, procedural surface,
  * cloud layer, and atmospheric glowing haze.
  */
-export default function PlanetModel() {
-  const planetRef = useRef();
-  const cloudsRef = useRef();
-  const atmosphereRef = useRef();
+function PlanetModel() {
+  const planetRef = useRef(null);
+  const cloudsRef = useRef(null);
+  const atmosphereRef = useRef(null);
 
-  // Create procedural textures once
+  // Memoize procedural textures and geometry/position tuples
   const planetTexture = useMemo(() => createProceduralPlanetTexture(), []);
   const cloudsTexture = useMemo(() => createCloudsTexture(), []);
 
-  // Continuous subtle orbital rotation
+  const geometries = useMemo(
+    () => ({
+      planet: [2.0, 64, 64],
+      clouds: [2.04, 48, 48],
+      atmosphere: [2.22, 36, 36],
+    }),
+    []
+  );
+
+  const positions = useMemo(
+    () => ({
+      group: [0, 0, 0],
+      sun: [8, 4, 6],
+      rim: [-8, -3, -6],
+    }),
+    []
+  );
+
+  // Dispose GPU textures cleanly on unmount
+  useEffect(() => {
+    return () => {
+      planetTexture.dispose();
+      cloudsTexture.dispose();
+    };
+  }, [planetTexture, cloudsTexture]);
+
+  // Continuous subtle orbital rotation via useRef
   useFrame((state, delta) => {
     if (planetRef.current) {
       planetRef.current.rotation.y += delta * 0.08;
@@ -130,25 +156,22 @@ export default function PlanetModel() {
   });
 
   return (
-    <group position={[0, 0, 0]}>
+    <group position={positions.group}>
       {/* 1. Professional Space Lighting */}
-      {/* Deep space ambient light: soft fill for night side */}
       <ambientLight color="#081b33" intensity={0.8} />
 
-      {/* Primary Star (Sun) Directional Light: casts realistic daylight shadows */}
       <directionalLight
-        position={[8, 4, 6]}
+        position={positions.sun}
         intensity={3.2}
         color="#fffaf0"
         castShadow
       />
 
-      {/* Subtle blue rim light from deep space */}
-      <pointLight position={[-8, -3, -6]} color="#38bdf8" intensity={0.6} />
+      <pointLight position={positions.rim} color="#38bdf8" intensity={0.6} />
 
       {/* 2. Core Planet Mesh */}
       <mesh ref={planetRef}>
-        <sphereGeometry args={[2.0, 64, 64]} />
+        <sphereGeometry args={geometries.planet} />
         <meshStandardMaterial
           map={planetTexture}
           roughness={0.7}
@@ -158,7 +181,7 @@ export default function PlanetModel() {
 
       {/* 3. Atmospheric Cloud Layer */}
       <mesh ref={cloudsRef}>
-        <sphereGeometry args={[2.04, 48, 48]} />
+        <sphereGeometry args={geometries.clouds} />
         <meshStandardMaterial
           map={cloudsTexture}
           transparent
@@ -170,7 +193,7 @@ export default function PlanetModel() {
 
       {/* 4. Outer Atmospheric Glowing Halo */}
       <mesh ref={atmosphereRef}>
-        <sphereGeometry args={[2.22, 36, 36]} />
+        <sphereGeometry args={geometries.atmosphere} />
         <meshBasicMaterial
           color="#38bdf8"
           transparent
@@ -182,3 +205,5 @@ export default function PlanetModel() {
     </group>
   );
 }
+
+export default memo(PlanetModel);

@@ -18,12 +18,13 @@ export const FALLBACK_APOD = {
 };
 
 // صورة اليوم الفلكية
-export async function getAPOD() {
+export async function getAPOD(signal) {
   try {
     const response = await axios.get(APOD_URL, {
       params: {
         api_key: NASA_API_KEY,
       },
+      signal,
       timeout: 15000,
     });
 
@@ -35,13 +36,16 @@ export async function getAPOD() {
 
     return data;
   } catch (error) {
+    if (axios.isCancel(error) || error?.name === "CanceledError" || error?.code === "ERR_CANCELED") {
+      throw error;
+    }
     console.warn("APOD Fallback activated:", error?.message || error);
     return FALLBACK_APOD;
   }
 }
 
 // البحث عن صور الفضاء
-export async function getSpaceImages(query = "Galaxy", page = 1) {
+export async function getSpaceImages(query = "Galaxy", page = 1, signal) {
   try {
     const response = await axios.get(IMAGES_URL, {
       params: {
@@ -50,6 +54,7 @@ export async function getSpaceImages(query = "Galaxy", page = 1) {
         page,
         page_size: 24,
       },
+      signal,
       timeout: 20000,
     });
 
@@ -76,6 +81,9 @@ export async function getSpaceImages(query = "Galaxy", page = 1) {
       })
       .filter((item) => item.image);
   } catch (error) {
+    if (axios.isCancel(error) || error?.name === "CanceledError" || error?.code === "ERR_CANCELED") {
+      throw error;
+    }
     console.error("NASA Images Error:", error);
 
     throw new Error(
